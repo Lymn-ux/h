@@ -16,6 +16,8 @@ Window:SetFooter(
     2
 )
 
+local VisualSection = Window:NewSection("Visual")
+local TeleportSection = Window:NewSection("Teleport")
 local MainSection = Window:NewSection("Main")
 local CreditsSection = Window:NewSection("Credits")
 
@@ -142,7 +144,6 @@ local function updateOpahESP()
     end
 end
 
--- Loop Escape & Distance Check ProximityPrompt
 RunService.Heartbeat:Connect(function()
     if not escapeEnabled then return end
     local character = player.Character
@@ -154,7 +155,6 @@ RunService.Heartbeat:Connect(function()
         if pos then
             character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
             
-            -- Cek jarak 3 stud ke AtokBelalang sebelum trigger proximity prompt
             local rootPart = character:FindFirstChild("HumanoidRootPart")
             if rootPart and (rootPart.Position - pos).Magnitude <= 8 then
                 local remainingKeys = 0
@@ -188,18 +188,78 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-MainSection:CreateToggle("Esp Key And Note Code", false, function(Value)
+-- Visual Section
+VisualSection:CreateToggle("Esp Key And Note Code", false, function(Value)
     espKeyEnabled = Value
     task.defer(updateESP)
     Library:SendNotification("ESP", "ESP Key & Note status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
 end)
 
-MainSection:CreateToggle("Esp Opah", false, function(Value)
+VisualSection:CreateToggle("Esp Opah", false, function(Value)
     espOpahEnabled = Value
     task.defer(updateOpahESP)
     Library:SendNotification("ESP", "ESP Opah status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
 end)
 
+-- Teleport Section
+TeleportSection:CreateButton("TP to Key", function()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local targetKey = nil
+    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+    if puzzleItems then
+        for _, item in ipairs(puzzleItems:GetChildren()) do
+            if item.Name == "Key" then
+                targetKey = item
+                break
+            end
+        end
+    end
+
+    if targetKey then
+        local pos = targetKey:IsA("BasePart") and targetKey.Position or (targetKey:IsA("Model") and targetKey:GetPivot().Position)
+        if pos then
+            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
+            Library:SendNotification("Teleport", "Successfully teleported to Key!", 2, 122937454340636, 2, "grey")
+        end
+    else
+        Library:SendNotification("Error", "Key not found in PuzzleItems!", 2, 122937454340636, 2, "grey")
+    end
+end)
+
+TeleportSection:CreateButton("TP to PasscodeNote", function()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local targetNote = nil
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "PasscodeNote" then
+            targetNote = obj
+            break
+        end
+    end
+
+    if targetNote then
+        local pos = targetNote:IsA("BasePart") and targetNote.Position or (targetNote:IsA("Model") and targetNote:GetPivot().Position)
+        if pos then
+            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
+            Library:SendNotification("Teleport", "Successfully teleported to PasscodeNote!", 2, 122937454340636, 2, "grey")
+        end
+    else
+        Library:SendNotification("Error", "PasscodeNote not found!", 3, 122937454340636, 2, "grey")
+    end
+end)
+
+TeleportSection:CreateButton("TP to Safe Zone", function()
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
+    Library:SendNotification("Teleport", "Teleported to Safe Zone!", 2, 122937454340636, 2, "grey")
+end)
+
+-- Main Section
 MainSection:CreateToggle("Escape", false, function(Value)
     escapeEnabled = Value
     
@@ -252,63 +312,7 @@ MainSection:CreateButton("Code Reveal", function()
     end
 end)
 
-MainSection:CreateButton("TP to Key", function()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local targetKey = nil
-    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-    if puzzleItems then
-        for _, item in ipairs(puzzleItems:GetChildren()) do
-            if item.Name == "Key" then
-                targetKey = item
-                break
-            end
-        end
-    end
-
-    if targetKey then
-        local pos = targetKey:IsA("BasePart") and targetKey.Position or (targetKey:IsA("Model") and targetKey:GetPivot().Position)
-        if pos then
-            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-            Library:SendNotification("Teleport", "Successfully teleported to Key!", 2, 122937454340636, 2, "grey")
-        end
-    else
-        Library:SendNotification("Error", "Key not found in PuzzleItems!", 2, 122937454340636, 2, "grey")
-    end
-end)
-
-MainSection:CreateButton("TP to PasscodeNote", function()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local targetNote = nil
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "PasscodeNote" then
-            targetNote = obj
-            break
-        end
-    end
-
-    if targetNote then
-        local pos = targetNote:IsA("BasePart") and targetNote.Position or (targetNote:IsA("Model") and targetNote:GetPivot().Position)
-        if pos then
-            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-            Library:SendNotification("Teleport", "Successfully teleported to PasscodeNote!", 2, 122937454340636, 2, "grey")
-        end
-    else
-        Library:SendNotification("Error", "PasscodeNote not found!", 3, 122937454340636, 2, "grey")
-    end
-end)
-
-MainSection:CreateButton("TP to Safe Zone", function()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
-    Library:SendNotification("Teleport", "Teleported to Safe Zone!", 2, 122937454340636, 2, "grey")
-end)
-
+-- Credits Section
 CreditsSection:CreateButton("Copy TikTok", function()
     setclipboard("https://www.tiktok.com/@michel.ljw")
     Library:SendNotification(
