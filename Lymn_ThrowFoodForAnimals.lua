@@ -26,39 +26,47 @@ local tapBonusEnabled = false
 local autoUpgradeEnabled = false
 local autoBuyFoodEnabled = false
 
--- Target warna UIGradient untuk Auto Buy Food
-local TARGET_FOOD_COLOR = "0 1 0.862745 0.352941 0 1 0.941176 0.627451 0.0784314 0 "
+local isBusyBuying = false
 
--- Target warna UIGradient untuk Auto Upgrade Train
+local TARGET_FOOD_COLOR = "0 1 0.862745 0.352941 0 1 0.941176 0.627451 0.0784314 0 "
 local TARGET_UPGRADE_COLOR = "0 0.596078 0.964706 0.282353 0 1 0.384314 0.8 0.133333 0 "
 
--- 1. Perfect Throw Logic (dengan Teleport)
+-- Deklarasi fungsi tapBonus di awal supaya bisa dipanggil ulang
+local startTapBonus
+
+-- Fungsi helper untuk menghentikan training
+local function stopTraining()
+    pcall(function()
+        local stopEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Training_Stop")
+        if stopEvent then
+            stopEvent:InvokeServer()
+        end
+    end)
+end
+
+-- 1. Perfect Throw Logic
 local function startPerfectThrow()
     task.spawn(function()
         while perfectThrowEnabled do
-            pcall(function()
-                local character = LocalPlayer.Character
-                local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-                
-                if humanoidRootPart then
-                    humanoidRootPart.CFrame = CFrame.new(-0.37, 5.20, -35.80)
-                end
-                
-                local eventStart = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Start")
-                if eventStart then
-                    eventStart:InvokeServer()
-                end
+            if not isBusyBuying then
+                pcall(function()
+                    local character = LocalPlayer.Character
+                    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+                    
+                    if humanoidRootPart then
+                        humanoidRootPart.CFrame = CFrame.new(-0.37, 5.20, -35.80)
+                    end
+                    
+                    local eventStart = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Start")
+                    if eventStart then eventStart:InvokeServer() end
 
-                local eventResolve = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Resolve")
-                if eventResolve then
-                    eventResolve:InvokeServer(1)
-                end
+                    local eventResolve = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Resolve")
+                    if eventResolve then eventResolve:InvokeServer(1) end
 
-                local eventComplete = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Complete")
-                if eventComplete then
-                    eventComplete:InvokeServer()
-                end
-            end)
+                    local eventComplete = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Throw_Complete")
+                    if eventComplete then eventComplete:InvokeServer() end
+                end)
+            end
             task.wait()
         end
     end)
@@ -70,9 +78,7 @@ local function startEquipBest()
         while equipBestEnabled do
             pcall(function()
                 local event = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Plot_EquipBest")
-                if event then
-                    event:InvokeServer()
-                end
+                if event then event:InvokeServer() end
             end)
             task.wait(1)
         end
@@ -80,23 +86,25 @@ local function startEquipBest()
 end
 
 -- 3. Auto Tap Bonus Logic (x2 Train)
-local function startTapBonus()
+startTapBonus = function()
     task.spawn(function()
         pcall(function()
-            local character = LocalPlayer.Character
-            local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-            local trainingArea = workspace:FindFirstChild("LocalPlotProps") and workspace.LocalPlotProps:FindFirstChild("TrainingArea")
-            
-            if humanoidRootPart and trainingArea then
-                if trainingArea:IsA("BasePart") then
-                    humanoidRootPart.CFrame = trainingArea.CFrame + Vector3.new(0, 3, 0)
-                elseif trainingArea:IsA("Model") and trainingArea.PrimaryPart then
-                    humanoidRootPart.CFrame = trainingArea.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+            if not isBusyBuying then
+                local character = LocalPlayer.Character
+                local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+                local trainingArea = workspace:FindFirstChild("LocalPlotProps") and workspace.LocalPlotProps:FindFirstChild("TrainingArea")
+                
+                if humanoidRootPart and trainingArea then
+                    if trainingArea:IsA("BasePart") then
+                        humanoidRootPart.CFrame = trainingArea.CFrame + Vector3.new(0, 3, 0)
+                    elseif trainingArea:IsA("Model") and trainingArea.PrimaryPart then
+                        humanoidRootPart.CFrame = trainingArea.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                    end
                 end
             end
         end)
 
-        while tapBonusEnabled do
+        while tapBonusEnabled and not isBusyBuying do
             pcall(function()
                 local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
                 local trainingSeq = playerGui and playerGui:FindFirstChild("TrainingSequence")
@@ -105,12 +113,8 @@ local function startTapBonus()
 
                 if tapBonusBtn then
                     if tapBonusBtn:IsA("GuiButton") then
-                        for _, connection in ipairs(getconnections(tapBonusBtn.Activated)) do
-                            connection:Fire()
-                        end
-                        for _, connection in ipairs(getconnections(tapBonusBtn.MouseButton1Click)) do
-                            connection:Fire()
-                        end
+                        for _, connection in ipairs(getconnections(tapBonusBtn.Activated)) do connection:Fire() end
+                        for _, connection in ipairs(getconnections(tapBonusBtn.MouseButton1Click)) do connection:Fire() end
                     elseif tapBonusBtn:IsA("GuiObject") then
                         if typeof(firesignal) == "function" then
                             firesignal(tapBonusBtn.MouseButton1Click)
@@ -122,58 +126,74 @@ local function startTapBonus()
             task.wait(0.1)
         end
 
-        pcall(function()
-            local stopEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Training_Stop")
-            if stopEvent then
-                stopEvent:InvokeServer()
-            end
-        end)
+        stopTraining()
     end)
 end
 
--- 4. Auto Upgrade Train Logic
+-- 4. Auto Upgrade Train
 local function startAutoUpgrade()
     task.spawn(function()
         while autoUpgradeEnabled do
             pcall(function()
-                local uiGradient = workspace:FindFirstChild("LocalPlotProps")
-                    and workspace.LocalPlotProps:FindFirstChild("TrainingArea")
-                    and workspace.LocalPlotProps.TrainingArea:FindFirstChild("TrainingSpot")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot:FindFirstChild("UpgradeButton")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton:FindFirstChild("PriceAnchor")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton.PriceAnchor:FindFirstChild("PriceBillboard")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton.PriceAnchor.PriceBillboard:FindFirstChild("Holder")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton.PriceAnchor.PriceBillboard.Holder:FindFirstChild("PriceHolder")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton.PriceAnchor.PriceBillboard.Holder.PriceHolder:FindFirstChild("Price")
-                    and workspace.LocalPlotProps.TrainingArea.TrainingSpot.UpgradeButton.PriceAnchor.PriceBillboard.Holder.PriceHolder.Price:FindFirstChild("UIGradient")
+                local trainingArea = workspace:FindFirstChild("LocalPlotProps") and workspace.LocalPlotProps:FindFirstChild("TrainingArea")
+                local trainingSpot = trainingArea and trainingArea:FindFirstChild("TrainingSpot")
+                local upgradeBtn = trainingSpot and trainingSpot:FindFirstChild("UpgradeButton")
+                local priceNode = upgradeBtn and upgradeBtn:FindFirstChild("PriceAnchor") and upgradeBtn.PriceAnchor:FindFirstChild("PriceBillboard") and upgradeBtn.PriceAnchor.PriceBillboard:FindFirstChild("Holder") and upgradeBtn.PriceAnchor.PriceBillboard.Holder:FindFirstChild("PriceHolder") and upgradeBtn.PriceAnchor.PriceBillboard.Holder.PriceHolder:FindFirstChild("Price")
+                local uiGradient = priceNode and priceNode:FindFirstChild("UIGradient")
 
-                if uiGradient then
+                if not uiGradient and upgradeBtn then
+                    uiGradient = upgradeBtn:FindFirstDescendant("UIGradient")
+                end
+
+                if uiGradient and upgradeBtn then
                     local currentColor = tostring(uiGradient.Color)
                     if currentColor == TARGET_UPGRADE_COLOR then
-                        local upgradeEvent = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Stand_Upgrade")
-                        if upgradeEvent then
-                            upgradeEvent:InvokeServer()
+                        if tapBonusEnabled then
+                            stopTraining()
+                        end
+
+                        isBusyBuying = true
+
+                        for i = 1, 6 do
+                            local character = LocalPlayer.Character
+                            local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+                            if humanoidRootPart and upgradeBtn then
+                                if upgradeBtn:IsA("BasePart") then
+                                    humanoidRootPart.CFrame = upgradeBtn.CFrame + Vector3.new(0, 3, 0)
+                                elseif upgradeBtn:IsA("Model") and upgradeBtn.PrimaryPart then
+                                    humanoidRootPart.CFrame = upgradeBtn.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                                end
+                            end
+
+                            local upgradeEvent = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Stand_Upgrade")
+                            if upgradeEvent then
+                                upgradeEvent:InvokeServer()
+                            end
+                            task.wait(0.5)
+                        end
+
+                        isBusyBuying = false
+
+                        -- Otomatis lanjut training lagi jika x2 Train sedang aktif
+                        if tapBonusEnabled then
+                            startTapBonus()
                         end
                     end
                 end
             end)
-            task.wait(0.3)
+            task.wait(1)
         end
     end)
 end
 
--- 5. Auto Buy Best Food Logic
+-- 5. Auto Buy Best Food (Hanya beli 1 yang tertinggi)
 local function startAutoBuyFood()
     task.spawn(function()
         while autoBuyFoodEnabled do
             pcall(function()
                 local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                local cardsScroll = playerGui 
-                    and playerGui:FindFirstChild("FoodShop") 
-                    and playerGui.FoodShop:FindFirstChild("Main") 
-                    and playerGui.FoodShop.Main:FindFirstChild("Panel") 
-                    and playerGui.FoodShop.Main.Panel:FindFirstChild("Body") 
-                    and playerGui.FoodShop.Main.Panel.Body:FindFirstChild("CardsScroll")
+                local foodShop = playerGui and playerGui:FindFirstChild("FoodShop")
+                local cardsScroll = foodShop and foodShop:FindFirstChild("Main") and foodShop.Main:FindFirstChild("Panel") and foodShop.Main.Panel:FindFirstChild("Body") and foodShop.Main.Panel.Body:FindFirstChild("CardsScroll")
 
                 if cardsScroll then
                     local foodNumbers = {}
@@ -184,23 +204,51 @@ local function startAutoBuyFood()
                         end
                     end
 
-                    table.sort(foodNumbers, function(a, b)
-                        return a > b
-                    end)
+                    table.sort(foodNumbers, function(a, b) return a > b end)
 
                     for _, foodIndex in ipairs(foodNumbers) do
                         local foodFrame = cardsScroll:FindFirstChild("Food" .. tostring(foodIndex))
                         if foodFrame then
-                            local uiGradient = foodFrame:FindFirstChild("ActionButton") and foodFrame.ActionButton:FindFirstChild("UIGradient")
-                            if uiGradient then
-                                local currentColor = tostring(uiGradient.Color)
-                                if currentColor == TARGET_FOOD_COLOR then
+                            local actionBtn = foodFrame:FindFirstChild("ActionButton")
+                            local uiGradient = actionBtn and actionBtn:FindFirstChild("UIGradient")
+                            
+                            if uiGradient and tostring(uiGradient.Color) == TARGET_FOOD_COLOR then
+                                if tapBonusEnabled then
+                                    stopTraining()
+                                end
+
+                                isBusyBuying = true
+
+                                for i = 1, 6 do
+                                    local character = LocalPlayer.Character
+                                    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+                                    local localPlot = workspace:FindFirstChild("LocalPlotProps")
+                                    local shopArea = localPlot and localPlot:FindFirstChild("FoodShop")
+                                    local activationCircle = shopArea and shopArea:FindFirstChild("ActivationCircle")
+
+                                    if humanoidRootPart and activationCircle then
+                                        if activationCircle:IsA("BasePart") then
+                                            humanoidRootPart.CFrame = activationCircle.CFrame + Vector3.new(0, 3, 0)
+                                        elseif activationCircle:IsA("Model") and activationCircle.PrimaryPart then
+                                            humanoidRootPart.CFrame = activationCircle.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
+                                        end
+                                    end
+
                                     local buyEvent = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Shop_Buy")
                                     if buyEvent then
                                         buyEvent:InvokeServer(foodIndex)
-                                        break
                                     end
+                                    task.wait(0.5)
                                 end
+
+                                isBusyBuying = false
+
+                                -- Otomatis lanjut training lagi jika x2 Train sedang aktif
+                                if tapBonusEnabled then
+                                    startTapBonus()
+                                end
+                                
+                                break
                             end
                         end
                     end
@@ -216,15 +264,12 @@ local function sellAllTrigger()
     task.spawn(function()
         pcall(function()
             local event = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("Plot_SellAll")
-            if event then
-                event:InvokeServer()
-            end
+            if event then event:InvokeServer() end
         end)
     end)
 end
 
 -- ==================== UI TABS & SECTIONS ====================
--- Membuat beberapa Tab (Main, Farm, Shop, Credits)
 local MainTab = Window:NewSection("Main")
 local FarmTab = Window:NewSection("Training & Shop")
 local CreditsTab = Window:NewSection("Credits")
