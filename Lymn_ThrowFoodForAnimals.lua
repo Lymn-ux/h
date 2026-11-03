@@ -31,13 +31,11 @@ local isBusyBuying = false
 local TARGET_FOOD_COLOR = "0 1 0.862745 0.352941 0 1 0.941176 0.627451 0.0784314 0 "
 local TARGET_UPGRADE_COLOR = "0 0.596078 0.964706 0.282353 0 1 0.384314 0.8 0.133333 0 "
 
--- Deklarasi fungsi tapBonus di awal supaya bisa dipanggil ulang
 local startTapBonus
 
--- Fungsi helper untuk menghentikan training
 local function stopTraining()
     pcall(function()
-        local stopEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Training_Stop")
+        local stopEvent = ReplicatedStorage:WaitForChild("Remotes", 2):WaitForChild("Training_Stop", 2)
         if stopEvent then
             stopEvent:InvokeServer()
         end
@@ -174,7 +172,6 @@ local function startAutoUpgrade()
 
                         isBusyBuying = false
 
-                        -- Otomatis lanjut training lagi jika x2 Train sedang aktif
                         if tapBonusEnabled then
                             startTapBonus()
                         end
@@ -186,7 +183,7 @@ local function startAutoUpgrade()
     end)
 end
 
--- 5. Auto Buy Best Food (Hanya beli 1 yang tertinggi)
+-- 5. Auto Buy Best Food
 local function startAutoBuyFood()
     task.spawn(function()
         while autoBuyFoodEnabled do
@@ -222,9 +219,9 @@ local function startAutoBuyFood()
                                 for i = 1, 6 do
                                     local character = LocalPlayer.Character
                                     local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-                                    local localPlot = workspace:FindFirstChild("LocalPlotProps")
-                                    local shopArea = localPlot and localPlot:FindFirstChild("FoodShop")
-                                    local activationCircle = shopArea and shopArea:FindFirstChild("ActivationCircle")
+                                    local localPlot = workspace:WaitForChild("LocalPlotProps", 2)
+                                    local shopArea = localPlot and localPlot:WaitForChild("FoodShop", 2)
+                                    local activationCircle = shopArea and shopArea:WaitForChild("ActivationCircle", 2)
 
                                     if humanoidRootPart and activationCircle then
                                         if activationCircle:IsA("BasePart") then
@@ -243,7 +240,6 @@ local function startAutoBuyFood()
 
                                 isBusyBuying = false
 
-                                -- Otomatis lanjut training lagi jika x2 Train sedang aktif
                                 if tapBonusEnabled then
                                     startTapBonus()
                                 end
