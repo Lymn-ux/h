@@ -23,10 +23,12 @@ local CreditsSection = Window:NewSection("Credits")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local espKeyEnabled = false
 local espOpahEnabled = false
 local escapeEnabled = false
+local autoFarmEnabled = false
 local activeESPObjects = {}
 local activeOpahESPObjects = {}
 
@@ -144,41 +146,207 @@ local function updateOpahESP()
     end
 end
 
+local function getKeyColor(keyObj)
+    local colorName = ""
+    local keyColorProp = keyObj:FindFirstChild("KeyColor")
+    if keyColorProp then
+        if keyColorProp:IsA("StringValue") then
+            colorName = keyColorProp.Value
+        elseif type(keyColorProp.Value) == "string" then
+            colorName = keyColorProp.Value
+        end
+    elseif keyObj:GetAttribute("KeyColor") then
+        colorName = tostring(keyObj:GetAttribute("KeyColor"))
+    end
+    return string.lower(colorName)
+end
+
+-- Fungsi ngambil kode dan membersihkan spasi otomatis
+local function getPasscode()
+    local passcodeNote = nil
+    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+    if puzzleItems then
+        passcodeNote = puzzleItems:FindFirstChild("PasscodeNote")
+    end
+    if not passcodeNote then
+        passcodeNote = workspace:FindFirstChild("PasscodeNote", true)
+    end
+
+    if passcodeNote then
+        local paper = passcodeNote:FindFirstChild("Paper")
+        local writing = paper and paper:FindFirstChild("Writing")
+        local codeObj = writing and writing:FindFirstChild("Code")
+        if codeObj and (codeObj:IsA("TextLabel") or codeObj:IsA("TextBox") or codeObj:IsA("SurfaceGui")) then
+            local rawText = tostring(codeObj.Text)
+            -- Menghilangkan semua spasi atau karakter non-angka/string kosong
+            local cleanCode = string.gsub(rawText, "%s+", "")
+            return cleanCode
+        end
+    end
+    return nil
+end
+
+local farmedKeys = {}
+local isBusy = false
+local passcodeSubmitted = false
+
 RunService.Heartbeat:Connect(function()
-    if not escapeEnabled then return end
     local character = player.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = character.HumanoidRootPart
 
+    -- Auto Farm Loop
+    if autoFarmEnabled and not isBusy then
+        isBusy = true
+        
+        local targetKey = nil
+        local targetPos = nil
+        
+        local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+        if puzzleItems then
+            for _, item in ipairs(puzzleItems:GetChildren()) do
+                if item.Name == "Key" and not farmedKeys[item] then
+                    local pos = item:IsA("BasePart") and item.Position or (item:IsA("Model") and item:GetPivot().Position)
+                    if pos then
+                        targetKey = item
+                        targetPos = pos
+                        break
+                    end
+                end
+            end
+        end
+
+        if targetKey and targetPos then
+            farmedKeys[targetKey] = true 
+            local colorStr = getKeyColor(targetKey)
+            
+            -- 1. TP ke posisi key/chest
+            rootPart.Velocity = Vector3.new(0, 0, 0)
+            character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
+            task.wait(0.2)
+            
+            -- 2. Buka SEMUA laci/drawer di TripleChest terdekat
+            local puzzleChests = workspace:FindFirstChild("PuzzleChests")
+            if puzzleChests then
+                for _, chest in ipairs(puzzleChests:GetChildren()) do
+                    if chest.Name:find("TripleChest") or chest.Name:find("DoubleChest") or chest.Name:find("Chest") then
+                        local chestPos = chest:IsA("BasePart") and chest.Position or (chest:IsA("Model") and chest:GetPivot().Position)
+                        if chestPos and (targetPos - chestPos).Magnitude <= 8 then
+                            for _, desc in ipairs(chest:GetDescendants()) do
+                                if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
+                                    fireproximityprompt(desc)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            -- Backup prompt universal
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") then
+                    local part = obj.Parent
+                    if part then
+                        local partPos = part:IsA("BasePart") and part.Position or (part:IsA("Model") and part:GetPivot().Position)
+                        if partPos and (rootPart.Position - partPos).Magnitude <= 5 then
+                            fireproximityprompt(obj)
+                        end
+                    end
+                end
+            end
+
+            task.wait(0.4)
+
+            -- 3. Ambil key-nya lewat PuzzlePrompt attachment
+            local rootPartKey = targetKey:FindFirstChild("Root")
+            local attachment = rootPartKey and rootPartKey:FindFirstChild("ItemPromptAttachment")
+            local puzzlePrompt = attachment and attachment:FindFirstChild("PuzzlePrompt")
+            if puzzlePrompt and puzzlePrompt:IsA("ProximityPrompt") then
+                fireproximityprompt(puzzlePrompt)
+            end
+            
+            task.wait(0.5)
+            
+            -- 4. Pindah ke gembok pintu sesuai warna key
+            local lockIndex = "1"
+            if colorStr:find("red") then
+                lockIndex = "1"
+            elseif colorStr:find("blue") then
+                lockIndex = "2"
+            elseif colorStr:find("green") then
+                lockIndex = "3"
+            elseif colorStr:find("yellow") or colorStr:find("gold") then
+                lockIndex = "4"
+            elseif colorStr:find("purple") or colorStr:find("tulip") then
+                lockIndex = "5"
+            end
+
+            local frontDoor = workspace:FindFirstChild("FrontDoor")
+            local puzzleLocks = frontDoor and frontDoor:FindFirstChild("PuzzleLocks")
+            local targetLockNode = puzzleLocks and (puzzleLocks:FindFirstChild("Lock_" .. lockIndex) or puzzleLocks:FindFirstChild("Lock_1"))
+            
+            if targetLockNode then
+                local padlockBody = targetLockNode:FindFirstChild("Padlock") and targetLockNode.Padlock:FindFirstChild("Body")
+                if padlockBody then
+                    local lockPos = padlockBody:IsA("BasePart") and padlockBody.Position or padlockBody:GetPivot().Position
+                    rootPart.Velocity = Vector3.new(0, 0, 0)
+                    character:PivotTo(CFrame.new(lockPos + Vector3.new(0, 0, 3)))
+                    task.wait(0.2)
+                end
+
+                local lockPrompt = targetLockNode:FindFirstChild("Padlock") and targetLockNode.Padlock:FindFirstChild("Body") and targetLockNode.Padlock.Body:FindFirstChild("LockPromptAttachment") and targetLockNode.Padlock.Body.LockPromptAttachment:FindFirstChild("PuzzlePrompt")
+                if lockPrompt and lockPrompt:IsA("ProximityPrompt") then
+                    fireproximityprompt(lockPrompt)
+                else
+                    for _, desc in ipairs(targetLockNode:GetDescendants()) do
+                        if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
+                            fireproximityprompt(desc)
+                            break
+                        end
+                    end
+                end
+            end
+
+            task.wait(0.5)
+        else
+            -- Kalau semua key udah habis, submit passcode (tanpa spasi) & escape otomatis!
+            if not passcodeSubmitted then
+                passcodeSubmitted = true
+                local code = getPasscode()
+                if code and code ~= "" then
+                    pcall(function()
+                        local args = {code}
+                        ReplicatedStorage:WaitForChild("PuzzleShared"):WaitForChild("Remotes"):WaitForChild("SubmitPasscode"):InvokeServer(unpack(args))
+                    end)
+                    Library:SendNotification("Auto Farm", "All keys collected! Passcode submitted: " .. code, 4, 122937454340636, 2, "grey")
+                end
+                escapeEnabled = true 
+            end
+            task.wait(0.5)
+        end
+        
+        isBusy = false
+    end
+
+    -- Escape Loop
+    if not escapeEnabled then return end
     local targetObj = workspace:FindFirstChild("CutsceneLocal") and workspace.CutsceneLocal:FindFirstChild("Actor_AtokBelalang")
     if targetObj then
         local pos = targetObj:IsA("BasePart") and targetObj.Position or (targetObj:IsA("Model") and targetObj:GetPivot().Position)
         if pos then
             character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
             
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
-            if rootPart and (rootPart.Position - pos).Magnitude <= 8 then
-                local remainingKeys = 0
-                local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-                if puzzleItems then
-                    for _, item in ipairs(puzzleItems:GetChildren()) do
-                        if item.Name == "Key" then
-                            remainingKeys = remainingKeys + 1
-                        end
+            if (rootPart.Position - pos).Magnitude <= 8 then
+                for _, obj in ipairs(targetObj:GetDescendants()) do
+                    if obj:IsA("ProximityPrompt") then
+                        fireproximityprompt(obj)
                     end
                 end
-
-                if remainingKeys == 0 then
-                    for _, obj in ipairs(targetObj:GetDescendants()) do
-                        if obj:IsA("ProximityPrompt") then
-                            fireproximityprompt(obj)
-                        end
-                    end
-                    for _, obj in ipairs(workspace:GetDescendants()) do
-                        if obj.Name == "Actor_AtokBelalang" then
-                            for _, p in ipairs(obj:GetDescendants()) do
-                                if p:IsA("ProximityPrompt") then
-                                    fireproximityprompt(p)
-                                end
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj.Name == "Actor_AtokBelalang" then
+                        for _, p in ipairs(obj:GetDescendants()) do
+                            if p:IsA("ProximityPrompt") then
+                                fireproximityprompt(p)
                             end
                         end
                     end
@@ -260,53 +428,29 @@ TeleportSection:CreateButton("TP to Safe Zone", function()
 end)
 
 -- Main Section
+MainSection:CreateToggle("Auto Farm", false, function(Value)
+    autoFarmEnabled = Value
+    if not Value then
+        table.clear(farmedKeys)
+        isBusy = false
+        passcodeSubmitted = false
+    end
+    Library:SendNotification("Auto Farm", "Auto Farm status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
+end)
+
 MainSection:CreateToggle("Escape", false, function(Value)
     escapeEnabled = Value
-    
     if escapeEnabled then
-        local remainingKeys = 0
-        local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-        if puzzleItems then
-            for _, item in ipairs(puzzleItems:GetChildren()) do
-                if item.Name == "Key" then
-                    remainingKeys = remainingKeys + 1
-                end
-            end
-        end
-
-        if remainingKeys > 0 then
-            Library:SendNotification("Escape", "COMPLETE " .. tostring(remainingKeys) .. " KEYS FIRST", 3, 122937454340636, 2, "grey")
-        else
-            Library:SendNotification("Escape", "Escape Activated!", 2, 122937454340636, 2, "grey")
-        end
+        Library:SendNotification("Escape", "Escape Activated!", 2, 122937454340636, 2, "grey")
     else
         Library:SendNotification("Escape", "Escape Deactivated!", 2, 122937454340636, 2, "grey")
     end
 end)
 
 MainSection:CreateButton("Code Reveal", function()
-    local passcodeNote = nil
-    
-    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-    if puzzleItems then
-        passcodeNote = puzzleItems:FindFirstChild("PasscodeNote")
-    end
-    
-    if not passcodeNote then
-        passcodeNote = workspace:FindFirstChild("PasscodeNote", true)
-    end
-
-    if passcodeNote then
-        local paper = passcodeNote:FindFirstChild("Paper")
-        local writing = paper and paper:FindFirstChild("Writing")
-        local codeObj = writing and writing:FindFirstChild("Code")
-
-        if codeObj and (codeObj:IsA("TextLabel") or codeObj:IsA("TextBox") or codeObj:IsA("SurfaceGui")) then
-            local codeText = codeObj.Text
-            Library:SendNotification("Code Reveal", "Code : " .. tostring(codeText), 5, 122937454340636, 2, "grey")
-        else
-            Library:SendNotification("Error", "Code property not found inside Writing!", 3, 122937454340636, 2, "grey")
-        end
+    local code = getPasscode()
+    if code and code ~= "" then
+        Library:SendNotification("Code Reveal", "Code : " .. code, 5, 122937454340636, 2, "grey")
     else
         Library:SendNotification("Error", "PasscodeNote not found!", 3, 122937454340636, 2, "grey")
     end
