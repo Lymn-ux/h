@@ -458,7 +458,7 @@ end)
 
 -- Credits Section
 CreditsSection:CreateButton("Copy TikTok", function()
-    setclipboard("https://www.tiktok.com/@michel.ljw")
+    setclipboard("https://www.tiktok.com/@michellyjowzero_")
     Library:SendNotification(
         "Copied!",
         "TikTok link copied to clipboard!",
