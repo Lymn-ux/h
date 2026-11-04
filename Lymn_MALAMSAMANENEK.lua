@@ -22,26 +22,18 @@ local MainSection = Window:NewSection("Main")
 local CreditsSection = Window:NewSection("Credits")
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
+
 local espKeyEnabled = false
 local espOpahEnabled = false
-local escapeEnabled = false
 local autoFarmEnabled = false
 local activeESPObjects = {}
 local activeOpahESPObjects = {}
 
 local function createESP(obj, textName, color, storageTable)
     if not obj then return end
-    
-    local targetPart = nil
-    if obj:IsA("BasePart") then
-        targetPart = obj
-    elseif obj:IsA("Model") then
-        targetPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-    end
-
+    local targetPart = obj:IsA("BasePart") and obj or (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")))
     if targetPart and not targetPart:FindFirstChild("LymnESP_Folder") then
         local container = Instance.new("Folder")
         container.Name = "LymnESP_Folder"
@@ -95,16 +87,10 @@ local function updateESP()
 
                 local keyColorProp = item:FindFirstChild("KeyColor")
                 if keyColorProp then
-                    if keyColorProp:IsA("StringValue") then
-                        colorName = keyColorProp.Value
-                    elseif type(keyColorProp.Value) == "string" then
-                        colorName = keyColorProp.Value
-                    end
+                    colorName = tostring(keyColorProp.Value)
                 elseif item:GetAttribute("KeyColor") then
                     colorName = tostring(item:GetAttribute("KeyColor"))
                 end
-
-                local displayName = "Key: " .. colorName
 
                 local lowerColor = string.lower(colorName)
                 if lowerColor:find("purple") or lowerColor:find("tulip") then
@@ -119,7 +105,7 @@ local function updateESP()
                     itemColor = Color3.fromRGB(50, 255, 50)
                 end
 
-                createESP(item, displayName, itemColor, activeESPObjects)
+                createESP(item, "Key: " + colorName, itemColor, activeESPObjects)
             end
         end
     end
@@ -150,24 +136,15 @@ local function getKeyColor(keyObj)
     local colorName = ""
     local keyColorProp = keyObj:FindFirstChild("KeyColor")
     if keyColorProp then
-        if keyColorProp:IsA("StringValue") then
-            colorName = keyColorProp.Value
-        elseif type(keyColorProp.Value) == "string" then
-            colorName = keyColorProp.Value
-        end
+        colorName = tostring(keyColorProp.Value)
     elseif keyObj:GetAttribute("KeyColor") then
         colorName = tostring(keyObj:GetAttribute("KeyColor"))
     end
     return string.lower(colorName)
 end
 
--- Fungsi ngambil kode dan membersihkan spasi otomatis
 local function getPasscode()
-    local passcodeNote = nil
-    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-    if puzzleItems then
-        passcodeNote = puzzleItems:FindFirstChild("PasscodeNote")
-    end
+    local passcodeNote = workspace:FindFirstChild("PuzzleItems") and workspace.PuzzleItems:FindFirstChild("PasscodeNote")
     if not passcodeNote then
         passcodeNote = workspace:FindFirstChild("PasscodeNote", true)
     end
@@ -177,179 +154,192 @@ local function getPasscode()
         local writing = paper and paper:FindFirstChild("Writing")
         local codeObj = writing and writing:FindFirstChild("Code")
         if codeObj and (codeObj:IsA("TextLabel") or codeObj:IsA("TextBox") or codeObj:IsA("SurfaceGui")) then
-            local rawText = tostring(codeObj.Text)
-            -- Menghilangkan semua spasi atau karakter non-angka/string kosong
-            local cleanCode = string.gsub(rawText, "%s+", "")
-            return cleanCode
+            return string.gsub(tostring(codeObj.Text), "%s+", "")
         end
     end
     return nil
 end
 
-local farmedKeys = {}
-local isBusy = false
-local passcodeSubmitted = false
+-- Loop Auto Farm Mandiri dengan Progress Notification
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if autoFarmEnabled then
+            local character = player.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            
+            if rootPart then
+                -- 1. Door Knock Handler
+                local doorKnockObj = nil
+                pcall(function()
+                    doorKnockObj = workspace.Cutscenes.Markers.DoorKnock
+                end)
 
-RunService.Heartbeat:Connect(function()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local rootPart = character.HumanoidRootPart
+                if doorKnockObj and not workspace:FindFirstChild("DoorKnockDone_Flag") then
+                    local targetPos = Vector3.new(301.94, 9.59, -210.44)
+                    pcall(function()
+                        if doorKnockObj:IsA("BasePart") then
+                            targetPos = doorKnockObj.Position
+                        elseif doorKnockObj:IsA("Model") then
+                            targetPos = doorKnockObj:GetPivot().Position
+                        elseif doorKnockObj:IsA("Attachment") then
+                            targetPos = doorKnockObj.WorldPosition
+                        end
+                    end)
 
-    -- Auto Farm Loop
-    if autoFarmEnabled and not isBusy then
-        isBusy = true
-        
-        local targetKey = nil
-        local targetPos = nil
-        
-        local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-        if puzzleItems then
-            for _, item in ipairs(puzzleItems:GetChildren()) do
-                if item.Name == "Key" and not farmedKeys[item] then
-                    local pos = item:IsA("BasePart") and item.Position or (item:IsA("Model") and item:GetPivot().Position)
-                    if pos then
-                        targetKey = item
-                        targetPos = pos
-                        break
+                    rootPart.Velocity = Vector3.zero
+                    character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
+                    task.wait(0.3)
+
+                    pcall(function()
+                        local prompt = workspace.Cutscenes.Markers.DoorKnock:FindFirstChild("DoorKnock") or workspace.Cutscenes.Markers.DoorKnock:FindFirstChildWhichIsA("ProximityPrompt", true)
+                        if prompt and prompt:IsA("ProximityPrompt") then
+                            fireproximityprompt(prompt)
+                        end
+                    end)
+
+                    local flag = Instance.new("Folder")
+                    flag.Name = "DoorKnockDone_Flag"
+                    flag.Parent = workspace
+                    task.wait(0.5)
+
+                    -- Remote Event setelah DoorKnock selesai
+                    pcall(function()
+                        local args = {"SkipVote", "Reveal"}
+                        ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
+                    end)
+
+                    Library:SendNotification("Progress", "Door Knocked: 10%", 2, 122937454340636, 2, "grey")
+                end
+
+                -- Hitung total key awal untuk kalkulasi progress persen (10% + [10% per key])
+                local initialTotalKeys = 5
+                local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+                
+                local keysList = {}
+                if puzzleItems then
+                    for _, item in ipairs(puzzleItems:GetChildren()) do
+                        if item.Name == "Key" then
+                            table.insert(keysList, item)
+                        end
                     end
                 end
-            end
-        end
 
-        if targetKey and targetPos then
-            farmedKeys[targetKey] = true 
-            local colorStr = getKeyColor(targetKey)
-            
-            -- 1. TP ke posisi key/chest
-            rootPart.Velocity = Vector3.new(0, 0, 0)
-            character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
-            task.wait(0.2)
-            
-            -- 2. Buka SEMUA laci/drawer di TripleChest terdekat
-            local puzzleChests = workspace:FindFirstChild("PuzzleChests")
-            if puzzleChests then
-                for _, chest in ipairs(puzzleChests:GetChildren()) do
-                    if chest.Name:find("TripleChest") or chest.Name:find("DoubleChest") or chest.Name:find("Chest") then
-                        local chestPos = chest:IsA("BasePart") and chest.Position or (chest:IsA("Model") and chest:GetPivot().Position)
-                        if chestPos and (targetPos - chestPos).Magnitude <= 8 then
-                            for _, desc in ipairs(chest:GetDescendants()) do
-                                if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
-                                    fireproximityprompt(desc)
+                local currentKeysLeft = #keysList
+                local keysCollectedCount = initialTotalKeys - currentKeysLeft
+                local currentPercent = math.clamp(10 + (keysCollectedCount * 10), 10, 60)
+
+                -- 3. Eksekusi Ambil Key + Buka Lock Pintu
+                if currentKeysLeft > 0 then
+                    local targetKey = keysList[1]
+                    local targetPos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
+                    local colorStr = getKeyColor(targetKey)
+
+                    -- TP ke Key
+                    rootPart.Velocity = Vector3.zero
+                    character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
+                    task.wait(0.2)
+
+                    -- Buka SEMUA Drawer Chest terdekat
+                    local puzzleChests = workspace:FindFirstChild("PuzzleChests")
+                    if puzzleChests then
+                        for _, chest in ipairs(puzzleChests:GetChildren()) do
+                            local chestPos = chest:IsA("BasePart") and chest.Position or chest:GetPivot().Position
+                            if chestPos and (targetPos - chestPos).Magnitude <= 8 then
+                                for _, desc in ipairs(chest:GetDescendants()) do
+                                    if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
+                                        fireproximityprompt(desc)
+                                    end
                                 end
                             end
                         end
                     end
-                end
-            end
+                    task.wait(0.3)
 
-            -- Backup prompt universal
-            for _, obj in ipairs(workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") then
-                    local part = obj.Parent
-                    if part then
-                        local partPos = part:IsA("BasePart") and part.Position or (part:IsA("Model") and part:GetPivot().Position)
-                        if partPos and (rootPart.Position - partPos).Magnitude <= 5 then
-                            fireproximityprompt(obj)
+                    -- Fire Prompt Ambil Key
+                    local rootPartKey = targetKey:FindFirstChild("Root")
+                    local attachment = rootPartKey and rootPartKey:FindFirstChild("ItemPromptAttachment")
+                    local puzzlePrompt = attachment and attachment:FindFirstChild("PuzzlePrompt")
+                    if puzzlePrompt and puzzlePrompt:IsA("ProximityPrompt") then
+                        fireproximityprompt(puzzlePrompt)
+                    end
+                    task.wait(0.4)
+
+                    -- Pindah Ke Lock Pintu Sesuai Warna
+                    local lockIndex = "1"
+                    if colorStr:find("red") then lockIndex = "1"
+                    elseif colorStr:find("blue") then lockIndex = "2"
+                    elseif colorStr:find("green") then lockIndex = "3"
+                    elseif colorStr:find("yellow") or colorStr:find("gold") then lockIndex = "4"
+                    elseif colorStr:find("purple") or colorStr:find("tulip") then lockIndex = "5" end
+
+                    local frontDoor = workspace:FindFirstChild("FrontDoor")
+                    local puzzleLocks = frontDoor and frontDoor:FindFirstChild("PuzzleLocks")
+                    local targetLockNode = puzzleLocks and (puzzleLocks:FindFirstChild("Lock_" .. lockIndex) or puzzleLocks:FindFirstChild("Lock_1"))
+
+                    if targetLockNode then
+                        local padlockBody = targetLockNode:FindFirstChild("Padlock") and targetLockNode.Padlock:FindFirstChild("Body")
+                        if padlockBody then
+                            local lockPos = padlockBody:IsA("BasePart") and padlockBody.Position or padlockBody:GetPivot().Position
+                            rootPart.Velocity = Vector3.zero
+                            character:PivotTo(CFrame.new(lockPos + Vector3.new(0, 0, 3)))
+                            task.wait(0.2)
                         end
-                    end
-                end
-            end
 
-            task.wait(0.4)
-
-            -- 3. Ambil key-nya lewat PuzzlePrompt attachment
-            local rootPartKey = targetKey:FindFirstChild("Root")
-            local attachment = rootPartKey and rootPartKey:FindFirstChild("ItemPromptAttachment")
-            local puzzlePrompt = attachment and attachment:FindFirstChild("PuzzlePrompt")
-            if puzzlePrompt and puzzlePrompt:IsA("ProximityPrompt") then
-                fireproximityprompt(puzzlePrompt)
-            end
-            
-            task.wait(0.5)
-            
-            -- 4. Pindah ke gembok pintu sesuai warna key
-            local lockIndex = "1"
-            if colorStr:find("red") then
-                lockIndex = "1"
-            elseif colorStr:find("blue") then
-                lockIndex = "2"
-            elseif colorStr:find("green") then
-                lockIndex = "3"
-            elseif colorStr:find("yellow") or colorStr:find("gold") then
-                lockIndex = "4"
-            elseif colorStr:find("purple") or colorStr:find("tulip") then
-                lockIndex = "5"
-            end
-
-            local frontDoor = workspace:FindFirstChild("FrontDoor")
-            local puzzleLocks = frontDoor and frontDoor:FindFirstChild("PuzzleLocks")
-            local targetLockNode = puzzleLocks and (puzzleLocks:FindFirstChild("Lock_" .. lockIndex) or puzzleLocks:FindFirstChild("Lock_1"))
-            
-            if targetLockNode then
-                local padlockBody = targetLockNode:FindFirstChild("Padlock") and targetLockNode.Padlock:FindFirstChild("Body")
-                if padlockBody then
-                    local lockPos = padlockBody:IsA("BasePart") and padlockBody.Position or padlockBody:GetPivot().Position
-                    rootPart.Velocity = Vector3.new(0, 0, 0)
-                    character:PivotTo(CFrame.new(lockPos + Vector3.new(0, 0, 3)))
-                    task.wait(0.2)
-                end
-
-                local lockPrompt = targetLockNode:FindFirstChild("Padlock") and targetLockNode.Padlock:FindFirstChild("Body") and targetLockNode.Padlock.Body:FindFirstChild("LockPromptAttachment") and targetLockNode.Padlock.Body.LockPromptAttachment:FindFirstChild("PuzzlePrompt")
-                if lockPrompt and lockPrompt:IsA("ProximityPrompt") then
-                    fireproximityprompt(lockPrompt)
-                else
-                    for _, desc in ipairs(targetLockNode:GetDescendants()) do
-                        if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
-                            fireproximityprompt(desc)
-                            break
-                        end
-                    end
-                end
-            end
-
-            task.wait(0.5)
-        else
-            -- Kalau semua key udah habis, submit passcode (tanpa spasi) & escape otomatis!
-            if not passcodeSubmitted then
-                passcodeSubmitted = true
-                local code = getPasscode()
-                if code and code ~= "" then
-                    pcall(function()
-                        local args = {code}
-                        ReplicatedStorage:WaitForChild("PuzzleShared"):WaitForChild("Remotes"):WaitForChild("SubmitPasscode"):InvokeServer(unpack(args))
-                    end)
-                    Library:SendNotification("Auto Farm", "All keys collected! Passcode submitted: " .. code, 4, 122937454340636, 2, "grey")
-                end
-                escapeEnabled = true 
-            end
-            task.wait(0.5)
-        end
-        
-        isBusy = false
-    end
-
-    -- Escape Loop
-    if not escapeEnabled then return end
-    local targetObj = workspace:FindFirstChild("CutsceneLocal") and workspace.CutsceneLocal:FindFirstChild("Actor_AtokBelalang")
-    if targetObj then
-        local pos = targetObj:IsA("BasePart") and targetObj.Position or (targetObj:IsA("Model") and targetObj:GetPivot().Position)
-        if pos then
-            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-            
-            if (rootPart.Position - pos).Magnitude <= 8 then
-                for _, obj in ipairs(targetObj:GetDescendants()) do
-                    if obj:IsA("ProximityPrompt") then
-                        fireproximityprompt(obj)
-                    end
-                end
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj.Name == "Actor_AtokBelalang" then
-                        for _, p in ipairs(obj:GetDescendants()) do
-                            if p:IsA("ProximityPrompt") then
-                                fireproximityprompt(p)
+                        for _, desc in ipairs(targetLockNode:GetDescendants()) do
+                            if desc.Name == "PuzzlePrompt" and desc:IsA("ProximityPrompt") then
+                                fireproximityprompt(desc)
+                                break
                             end
                         end
                     end
+                    task.wait(0.4)
+
+                    Library:SendNotification("Progress", "Key Collected & Locked (" .. tostring(keysCollectedCount + 1) .. "/5): " .. tostring(currentPercent + 10) .."%", 2, 122937454340636, 2, "grey")
+
+                else
+                    -- 4. Jika Key Sudah Habis (0) -> Remote OutroOpening -> Submit Code (85%) -> Escape (100%)
+                    pcall(function()
+                        local args = {"SkipVote", "OutroOpening"}
+                        ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
+                    end)
+                    task.wait(0.3)
+
+                    local code = getPasscode()
+                    if code and code ~= "" then
+                        pcall(function()
+                            local args = {code}
+                            ReplicatedStorage:WaitForChild("PuzzleShared"):WaitForChild("Remotes"):WaitForChild("SubmitPasscode"):InvokeServer(unpack(args))
+                        end)
+                        Library:SendNotification("Progress", "Passcode Submitted: 85%", 2, 122937454340636, 2, "grey")
+                    end
+
+                    task.wait(0.3)
+
+                    -- Teleport ke Actor_AtokBelalang buat Escape
+                    local targetObj = workspace:FindFirstChild("CutsceneLocal") and workspace.CutsceneLocal:FindFirstChild("Actor_AtokBelalang")
+                    if targetObj then
+                        local pos = targetObj:IsA("BasePart") and targetObj.Position or targetObj:GetPivot().Position
+                        if pos then
+                            rootPart.Velocity = Vector3.zero
+                            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
+                            task.wait(0.2)
+
+                            pcall(function()
+                                local args = {"SkipVote", "OutroDrive"}
+                                ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
+                            end)
+
+                            for _, obj in ipairs(targetObj:GetDescendants()) do
+                                if obj:IsA("ProximityPrompt") then
+                                    fireproximityprompt(obj)
+                                end
+                            end
+
+                            Library:SendNotification("Progress", "Escaped Successfully: 100%", 3, 122937454340636, 2, "grey")
+                        end
+                    end
+                    task.wait(1)
                 end
             end
         end
@@ -372,79 +362,41 @@ end)
 -- Teleport Section
 TeleportSection:CreateButton("TP to Key", function()
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
 
-    local targetKey = nil
     local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-    if puzzleItems then
-        for _, item in ipairs(puzzleItems:GetChildren()) do
-            if item.Name == "Key" then
-                targetKey = item
-                break
-            end
-        end
-    end
+    local targetKey = puzzleItems and puzzleItems:FindFirstChild("Key")
 
     if targetKey then
-        local pos = targetKey:IsA("BasePart") and targetKey.Position or (targetKey:IsA("Model") and targetKey:GetPivot().Position)
-        if pos then
-            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-            Library:SendNotification("Teleport", "Successfully teleported to Key!", 2, 122937454340636, 2, "grey")
-        end
+        local pos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
+        rootPart.Velocity = Vector3.zero
+        character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
+        Library:SendNotification("Teleport", "Successfully teleported to Key!", 2, 122937454340636, 2, "grey")
     else
         Library:SendNotification("Error", "Key not found in PuzzleItems!", 2, 122937454340636, 2, "grey")
     end
 end)
 
-TeleportSection:CreateButton("TP to PasscodeNote", function()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local targetNote = nil
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj.Name == "PasscodeNote" then
-            targetNote = obj
-            break
-        end
-    end
-
-    if targetNote then
-        local pos = targetNote:IsA("BasePart") and targetNote.Position or (targetNote:IsA("Model") and targetNote:GetPivot().Position)
-        if pos then
-            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-            Library:SendNotification("Teleport", "Successfully teleported to PasscodeNote!", 2, 122937454340636, 2, "grey")
-        end
-    else
-        Library:SendNotification("Error", "PasscodeNote not found!", 3, 122937454340636, 2, "grey")
-    end
-end)
-
 TeleportSection:CreateButton("TP to Safe Zone", function()
     local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
-    Library:SendNotification("Teleport", "Teleported to Safe Zone!", 2, 122937454340636, 2, "grey")
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if rootPart then
+        rootPart.Velocity = Vector3.zero
+        character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
+        Library:SendNotification("Teleport", "Teleported to Safe Zone!", 2, 122937454340636, 2, "grey")
+    end
 end)
 
 -- Main Section
 MainSection:CreateToggle("Auto Farm", false, function(Value)
     autoFarmEnabled = Value
-    if not Value then
-        table.clear(farmedKeys)
-        isBusy = false
-        passcodeSubmitted = false
-    end
+    pcall(function()
+        if workspace:FindFirstChild("DoorKnockDone_Flag") then
+            workspace.DoorKnockDone_Flag:Destroy()
+        end
+    end)
     Library:SendNotification("Auto Farm", "Auto Farm status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
-end)
-
-MainSection:CreateToggle("Escape", false, function(Value)
-    escapeEnabled = Value
-    if escapeEnabled then
-        Library:SendNotification("Escape", "Escape Activated!", 2, 122937454340636, 2, "grey")
-    else
-        Library:SendNotification("Escape", "Escape Deactivated!", 2, 122937454340636, 2, "grey")
-    end
 end)
 
 MainSection:CreateButton("Code Reveal", function()
@@ -458,23 +410,11 @@ end)
 
 -- Credits Section
 CreditsSection:CreateButton("Copy TikTok", function()
-    setclipboard("https://www.tiktok.com/@michellyjowzero_")
-    Library:SendNotification(
-        "Copied!",
-        "TikTok link copied to clipboard!",
-        3,
-        17757765730,
-        2
-    )
+    setclipboard("https://www.tiktok.com/@michel.ljw")
+    Library:SendNotification("Copied!", "TikTok link copied to clipboard!", 3, 17757765730, 2)
 end)
 
 CreditsSection:CreateButton("Copy Discord", function()
     setclipboard("https://discord.gg/6B36mdd6cJ")
-    Library:SendNotification(
-        "Copied!",
-        "Discord invite copied to clipboard!",
-        3,
-        16584754883,
-        2
-    )
+    Library:SendNotification("Copied!", "Discord invite copied to clipboard!", 3, 16584754883, 2)
 end)
