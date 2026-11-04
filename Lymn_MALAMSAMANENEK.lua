@@ -1,5 +1,5 @@
 -- Lymn X MALAM SAMA OPAH
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/AetherXOfficial/x/refs/heads/main/UiLibary"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/UiLibary/x/refs/heads/main/source.lua"))()
 
 local Window = Library:NewWindow(
     "Lymn X MALAM SAMA OPAH",
