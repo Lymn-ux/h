@@ -897,26 +897,32 @@ task.spawn(function()
     })
 
     -- ── KAITUN ───────────────────────────────────────────────
+    local KaitunSnapshot = nil
     Kaitun:CreateSection({ Text = "Master Kaitun" })
     Toggle(Kaitun, "Master Kaitun (All-in-One)",
         "Automatically hunts bugs, breaks cocoons, picks traits, evolves and unlocks spiders",
         "Kaitun", function(v)
+            local keys = {
+                "AutoAttack", "AutoOrbs", "AutoEvolve", "AutoPickTraits", "AutoClaimRewards", "AutoSprint",
+                "TargetBugs", "TargetBreakables", "TargetBoss", "AvoidHigherLevel", "PrioritizeOneShot",
+                "AutoAbilities", "AutoVoidOrbs", "OrbVacuum",
+            }
             if v then
-                State.AutoAttack = true
-                State.AutoOrbs = true
+                KaitunSnapshot = {}
+                for _, k in ipairs(keys) do
+                    KaitunSnapshot[k] = State[k]
+                    State[k] = true
+                end
                 State.AutoRainbowOrbs = false -- Strictly disabled (Paid Robux Orb)
-                State.AutoEvolve = true
-                State.AutoPickTraits = true
-                State.AutoClaimRewards = true
-                State.AutoSprint = true
-                State.TargetBugs = true
-                State.TargetBreakables = true
-                State.TargetBoss = true
-                State.AvoidHigherLevel = true
-                State.PrioritizeOneShot = true
-                State.AutoAbilities = true
-                State.AutoVoidOrbs = true
-                State.OrbVacuum = true
+            else
+                -- Restore whatever was set before Kaitun was turned on
+                for _, k in ipairs(keys) do
+                    State[k] = KaitunSnapshot and KaitunSnapshot[k] or false
+                end
+                KaitunSnapshot = nil
+                if SetSprintRemote and not State.AutoSprint then
+                    pcall(function() SetSprintRemote:FireServer(false) end)
+                end
             end
         end)
 
