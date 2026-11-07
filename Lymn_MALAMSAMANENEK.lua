@@ -1,4 +1,4 @@
--- Lymn X MALAM SAMA OPAH (Orion Library - No Loading Intro)
+-- Lymn X MALAM SAMA OPAH (Orion Library - Custom Icons Version)
 local allowedExecutorID = 101051454784523
 
 -- Validasi Executor Whitelist
@@ -18,7 +18,7 @@ local Window = OrionLib:MakeWindow({
     HidePremium = false, 
     SaveConfig = true, 
     ConfigFolder = "LymnOpahConfig",
-    IntroEnabled = false -- Loading dimatiin biar langsung ke-load instan
+    IntroEnabled = false -- Loading dimatiin biar langsung instan
 })
 
 local Players = game:GetService("Players")
@@ -69,10 +69,10 @@ local function getPasscode()
     return nil
 end
 
--- Tab Utama
+-- Tab Utama (Icon Main: 18102581819)
 local TabMain = Window:MakeTab({
     Name = "Main",
-    Icon = "rbxassetid://4483345998",
+    Icon = "rbxassetid://18102581819",
     PremiumOnly = false
 })
 
@@ -112,10 +112,10 @@ TabMain:AddButton({
     end
 })
 
--- Tab ESP & Visuals
+-- Tab ESP & Visuals (Icon ESP: 12858057159)
 local TabESP = Window:MakeTab({
     Name = "Visuals",
-    Icon = "rbxassetid://4483345998",
+    Icon = "rbxassetid://12858057159",
     PremiumOnly = false
 })
 
