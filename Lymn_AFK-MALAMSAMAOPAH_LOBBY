@@ -1,0 +1,14 @@
+task.spawn(function()
+    local partyRemote = game:GetService("ReplicatedStorage"):WaitForChild("LobbyShared"):WaitForChild("PartyRemote")
+    
+    -- 1. Create Party
+    partyRemote:FireServer("Create")
+    task.wait(1)
+
+    -- 2. Vote Mode Nightmare
+    partyRemote:FireServer("Vote", "Nightmare")
+    task.wait(1)
+
+    -- 3. Start Game
+    partyRemote:FireServer("Start")
+end)
