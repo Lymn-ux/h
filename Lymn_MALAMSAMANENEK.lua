@@ -1,33 +1,29 @@
--- Lymn X MALAM SAMA OPAH
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/UiLibary/x/refs/heads/main/source.lua"))()
+-- Lymn X MALAM SAMA OPAH (Orion Library - Compact & Clean)
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/jensonhirst/Orion/main/source"))()
 
-local Window = Library:NewWindow(
-    "Lymn X MALAM SAMA OPAH",
-    122937454340636,
-    2,
-    "grey"
-)
+local Window = OrionLib:MakeWindow({
+    Name = "Lymn X MALAM SAMA OPAH",
+    HidePremium = false,
+    SaveConfig = true,
+    ConfigFolder = "LymnMalamSamaOpah",
+    IntroEnabled = false -- Skip intro biar langsung buka
+})
 
-Library:SendNotification("Lymn", "Script loaded successfully!", 2, 122937454340636, 2, "grey")
-
-Window:SetFooter(
-    "https://discord.gg/6B36mdd6cJ",
-    16584754883,
-    2
-)
-
-local VisualSection = Window:NewSection("Visual")
-local TeleportSection = Window:NewSection("Teleport")
-local MainSection = Window:NewSection("Main")
-local CreditsSection = Window:NewSection("Credits")
+OrionLib:MakeNotification({
+    Title = "Lymn",
+    Content = "Script loaded successfully!",
+    Image = "rbxassetid://122937454340636",
+    Time = 2
+})
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 
+local autoFarmEnabled = false
 local espKeyEnabled = false
 local espOpahEnabled = false
-local autoFarmEnabled = false
+local currentCutsceneType = "Bus" 
 local activeESPObjects = {}
 local activeOpahESPObjects = {}
 
@@ -105,7 +101,7 @@ local function updateESP()
                     itemColor = Color3.fromRGB(50, 255, 50)
                 end
 
-                createESP(item, "Key: " + colorName, itemColor, activeESPObjects)
+                createESP(item, "Key: " .. colorName, itemColor, activeESPObjects)
             end
         end
     end
@@ -131,6 +127,19 @@ local function updateOpahESP()
         end
     end
 end
+
+-- Skip Cutscene (0.05 detik)
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        if autoFarmEnabled then
+            pcall(function()
+                local args = {"SkipVote", currentCutsceneType}
+                ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
+            end)
+        end
+    end
+end)
 
 local function getKeyColor(keyObj)
     local colorName = ""
@@ -160,62 +169,42 @@ local function getPasscode()
     return nil
 end
 
--- Loop Auto Farm Mandiri dengan Progress Notification
+-- Auto Farm Loop (Teleport & Jeda Aksi 0.10 detik)
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.10)
         if autoFarmEnabled then
             local character = player.Character
             local rootPart = character and character:FindFirstChild("HumanoidRootPart")
             
             if rootPart then
-                -- 1. Door Knock Handler
-                local doorKnockObj = nil
+                local knockPrompt = nil
                 pcall(function()
-                    doorKnockObj = workspace.Cutscenes.Markers.DoorKnock
+                    knockPrompt = workspace.Cutscenes.Markers.DoorKnock.KnockPrompt.KnockPrompt
                 end)
 
-                if doorKnockObj and not workspace:FindFirstChild("DoorKnockDone_Flag") then
+                if knockPrompt and knockPrompt:IsA("ProximityPrompt") then
                     local targetPos = Vector3.new(301.94, 9.59, -210.44)
                     pcall(function()
-                        if doorKnockObj:IsA("BasePart") then
-                            targetPos = doorKnockObj.Position
-                        elseif doorKnockObj:IsA("Model") then
-                            targetPos = doorKnockObj:GetPivot().Position
-                        elseif doorKnockObj:IsA("Attachment") then
-                            targetPos = doorKnockObj.WorldPosition
+                        local knockPart = knockPrompt.Parent
+                        if knockPart and knockPart:IsA("BasePart") then
+                            targetPos = knockPart.Position
+                        elseif knockPart and knockPart:IsA("Model") then
+                            targetPos = knockPart:GetPivot().Position
                         end
                     end)
 
                     rootPart.Velocity = Vector3.zero
                     character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
-                    task.wait(0.3)
-
-                    pcall(function()
-                        local prompt = workspace.Cutscenes.Markers.DoorKnock:FindFirstChild("DoorKnock") or workspace.Cutscenes.Markers.DoorKnock:FindFirstChildWhichIsA("ProximityPrompt", true)
-                        if prompt and prompt:IsA("ProximityPrompt") then
-                            fireproximityprompt(prompt)
-                        end
-                    end)
-
-                    local flag = Instance.new("Folder")
-                    flag.Name = "DoorKnockDone_Flag"
-                    flag.Parent = workspace
-                    task.wait(0.5)
-
-                    -- Remote Event setelah DoorKnock selesai
-                    pcall(function()
-                        local args = {"SkipVote", "Reveal"}
-                        ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
-                    end)
-
-                    Library:SendNotification("Progress", "Door Knocked: 10%", 2, 122937454340636, 2, "grey")
+                    task.wait(0.10)
+                    fireproximityprompt(knockPrompt)
+                    task.wait(0.10)
+                    
+                    currentCutsceneType = "Reveal"
+                    continue 
                 end
 
-                -- Hitung total key awal untuk kalkulasi progress persen (10% + [10% per key])
-                local initialTotalKeys = 5
                 local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-                
                 local keysList = {}
                 if puzzleItems then
                     for _, item in ipairs(puzzleItems:GetChildren()) do
@@ -226,21 +215,16 @@ task.spawn(function()
                 end
 
                 local currentKeysLeft = #keysList
-                local keysCollectedCount = initialTotalKeys - currentKeysLeft
-                local currentPercent = math.clamp(10 + (keysCollectedCount * 10), 10, 60)
 
-                -- 3. Eksekusi Ambil Key + Buka Lock Pintu
                 if currentKeysLeft > 0 then
                     local targetKey = keysList[1]
                     local targetPos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
                     local colorStr = getKeyColor(targetKey)
 
-                    -- TP ke Key
                     rootPart.Velocity = Vector3.zero
                     character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
-                    task.wait(0.2)
+                    task.wait(0.10)
 
-                    -- Buka SEMUA Drawer Chest terdekat
                     local puzzleChests = workspace:FindFirstChild("PuzzleChests")
                     if puzzleChests then
                         for _, chest in ipairs(puzzleChests:GetChildren()) do
@@ -254,18 +238,15 @@ task.spawn(function()
                             end
                         end
                     end
-                    task.wait(0.3)
 
-                    -- Fire Prompt Ambil Key
                     local rootPartKey = targetKey:FindFirstChild("Root")
                     local attachment = rootPartKey and rootPartKey:FindFirstChild("ItemPromptAttachment")
                     local puzzlePrompt = attachment and attachment:FindFirstChild("PuzzlePrompt")
                     if puzzlePrompt and puzzlePrompt:IsA("ProximityPrompt") then
                         fireproximityprompt(puzzlePrompt)
                     end
-                    task.wait(0.4)
+                    task.wait(0.10)
 
-                    -- Pindah Ke Lock Pintu Sesuai Warna
                     local lockIndex = "1"
                     if colorStr:find("red") then lockIndex = "1"
                     elseif colorStr:find("blue") then lockIndex = "2"
@@ -283,7 +264,7 @@ task.spawn(function()
                             local lockPos = padlockBody:IsA("BasePart") and padlockBody.Position or padlockBody:GetPivot().Position
                             rootPart.Velocity = Vector3.zero
                             character:PivotTo(CFrame.new(lockPos + Vector3.new(0, 0, 3)))
-                            task.wait(0.2)
+                            task.wait(0.10)
                         end
 
                         for _, desc in ipairs(targetLockNode:GetDescendants()) do
@@ -293,17 +274,11 @@ task.spawn(function()
                             end
                         end
                     end
-                    task.wait(0.4)
-
-                    Library:SendNotification("Progress", "Key Collected & Locked (" .. tostring(keysCollectedCount + 1) .. "/5): " .. tostring(currentPercent + 10) .."%", 2, 122937454340636, 2, "grey")
+                    task.wait(0.10)
 
                 else
-                    -- 4. Jika Key Sudah Habis (0) -> Remote OutroOpening -> Submit Code (85%) -> Escape (100%)
-                    pcall(function()
-                        local args = {"SkipVote", "OutroOpening"}
-                        ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
-                    end)
-                    task.wait(0.3)
+                    currentCutsceneType = "OutroOpening"
+                    task.wait(0.10)
 
                     local code = getPasscode()
                     if code and code ~= "" then
@@ -311,110 +286,150 @@ task.spawn(function()
                             local args = {code}
                             ReplicatedStorage:WaitForChild("PuzzleShared"):WaitForChild("Remotes"):WaitForChild("SubmitPasscode"):InvokeServer(unpack(args))
                         end)
-                        Library:SendNotification("Progress", "Passcode Submitted: 85%", 2, 122937454340636, 2, "grey")
                     end
 
-                    task.wait(0.3)
+                    task.wait(0.10)
 
-                    -- Teleport ke Actor_AtokBelalang buat Escape
                     local targetObj = workspace:FindFirstChild("CutsceneLocal") and workspace.CutsceneLocal:FindFirstChild("Actor_AtokBelalang")
                     if targetObj then
                         local pos = targetObj:IsA("BasePart") and targetObj.Position or targetObj:GetPivot().Position
                         if pos then
                             rootPart.Velocity = Vector3.zero
                             character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-                            task.wait(0.2)
+                            task.wait(0.10)
 
-                            pcall(function()
-                                local args = {"SkipVote", "OutroDrive"}
-                                ReplicatedStorage:WaitForChild("Cutscenes"):WaitForChild("Remote"):FireServer(unpack(args))
-                            end)
+                            currentCutsceneType = "OutroDrive"
 
                             for _, obj in ipairs(targetObj:GetDescendants()) do
                                 if obj:IsA("ProximityPrompt") then
                                     fireproximityprompt(obj)
                                 end
                             end
-
-                            Library:SendNotification("Progress", "Escaped Successfully: 100%", 3, 122937454340636, 2, "grey")
                         end
                     end
-                    task.wait(1)
+                    task.wait(0.3)
                 end
             end
         end
     end
 end)
 
--- Visual Section
-VisualSection:CreateToggle("Esp Key And Note Code", false, function(Value)
-    espKeyEnabled = Value
-    task.defer(updateESP)
-    Library:SendNotification("ESP", "ESP Key & Note status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
-end)
+-- Tab Pembuatan Menu Orion
+local MainTab = Window:MakeTab({
+    Name = "Main",
+    Icon = "rbxassetid://6035067836",
+    PremiumOnly = false
+})
 
-VisualSection:CreateToggle("Esp Opah", false, function(Value)
-    espOpahEnabled = Value
-    task.defer(updateOpahESP)
-    Library:SendNotification("ESP", "ESP Opah status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
-end)
+local ExtraTab = Window:MakeTab({
+    Name = "Extra",
+    Icon = "rbxassetid://6031280882",
+    PremiumOnly = false
+})
 
--- Teleport Section
-TeleportSection:CreateButton("TP to Key", function()
-    local character = player.Character
-    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
+local InfoTab = Window:MakeTab({
+    Name = "Information",
+    Icon = "rbxassetid://6031075938",
+    PremiumOnly = false
+})
 
-    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-    local targetKey = puzzleItems and puzzleItems:FindFirstChild("Key")
-
-    if targetKey then
-        local pos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
-        rootPart.Velocity = Vector3.zero
-        character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
-        Library:SendNotification("Teleport", "Successfully teleported to Key!", 2, 122937454340636, 2, "grey")
-    else
-        Library:SendNotification("Error", "Key not found in PuzzleItems!", 2, 122937454340636, 2, "grey")
+-- Main Elements
+MainTab:AddToggle({
+    Name = "Auto Farm",
+    Default = false,
+    Callback = function(Value)
+        autoFarmEnabled = Value
+        currentCutsceneType = "Bus"
     end
-end)
+})
 
-TeleportSection:CreateButton("TP to Safe Zone", function()
-    local character = player.Character
-    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        rootPart.Velocity = Vector3.zero
-        character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
-        Library:SendNotification("Teleport", "Teleported to Safe Zone!", 2, 122937454340636, 2, "grey")
+-- Extra Elements
+ExtraTab:AddToggle({
+    Name = "ESP Key & Note Code",
+    Default = false,
+    Callback = function(Value)
+        espKeyEnabled = Value
+        task.defer(updateESP)
     end
-end)
+})
 
--- Main Section
-MainSection:CreateToggle("Auto Farm", false, function(Value)
-    autoFarmEnabled = Value
-    pcall(function()
-        if workspace:FindFirstChild("DoorKnockDone_Flag") then
-            workspace.DoorKnockDone_Flag:Destroy()
+ExtraTab:AddToggle({
+    Name = "ESP Opah",
+    Default = false,
+    Callback = function(Value)
+        espOpahEnabled = Value
+        task.defer(updateOpahESP)
+    end
+})
+
+ExtraTab:AddButton({
+    Name = "TP to Key",
+    Callback = function()
+        local character = player.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+
+        local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+        local targetKey = puzzleItems and puzzleItems:FindFirstChild("Key")
+
+        if targetKey then
+            local pos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
+            rootPart.Velocity = Vector3.zero
+            character:PivotTo(CFrame.new(pos + Vector3.new(0, 3, 0)))
         end
-    end)
-    Library:SendNotification("Auto Farm", "Auto Farm status: " .. tostring(Value), 2, 122937454340636, 2, "grey")
-end)
+    end
+})
 
-MainSection:CreateButton("Code Reveal", function()
-    local code = getPasscode()
-    if code and code ~= "" then
-        Library:SendNotification("Code Reveal", "Code : " .. code, 5, 122937454340636, 2, "grey")
-    else
-        Library:SendNotification("Error", "PasscodeNote not found!", 3, 122937454340636, 2, "grey")
+ExtraTab:AddButton({
+    Name = "TP to Safe Zone",
+    Callback = function()
+        local character = player.Character
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            rootPart.Velocity = Vector3.zero
+            character:PivotTo(CFrame.new(320.51, 11.14, -227.66))
+        end
+    end
+})
+
+-- Info Elements
+InfoTab:AddParagraph("Lymn Official", "Join our server for updates, announcements, support, and community.")
+InfoTab:AddButton({
+    Name = "Copy Discord Link",
+    Callback = function()
+        setclipboard("https://discord.gg/6B36mdd6cJ")
+        OrionLib:MakeNotification({
+            Title = "Copied!",
+            Content = "Discord link copied!",
+            Image = "rbxassetid://122937454340636",
+            Time = 1.5
+        })
+    end
+})
+
+InfoTab:AddButton({
+    Name = "Copy TikTok Link",
+    Callback = function()
+        setclipboard("https://www.tiktok.com/@michel.ljw")
+        OrionLib:MakeNotification({
+            Title = "Copied!",
+            Content = "TikTok link copied!",
+            Image = "rbxassetid://122937454340636",
+            Time = 1.5
+        })
+    end
+})
+
+-- Paksa scale/ukuran window Orion supaya lebih compact di HP
+pcall(function()
+    local mainFrame = game:GetService("CoreGui"):FindFirstChild("Orion")
+    if mainFrame then
+        for _, v in ipairs(mainFrame:GetDescendants()) do
+            if v.Name == "Container" and v:IsA("Frame") then
+                v.Size = UDim2.new(0, 420, 0, 280)
+            end
+        end
     end
 end)
 
--- Credits Section
-CreditsSection:CreateButton("Copy TikTok", function()
-    setclipboard("https://www.tiktok.com/@michel.ljw")
-    Library:SendNotification("Copied!", "TikTok link copied to clipboard!", 3, 17757765730, 2)
-end)
-
-CreditsSection:CreateButton("Copy Discord", function()
-    setclipboard("https://discord.gg/6B36mdd6cJ")
-    Library:SendNotification("Copied!", "Discord invite copied to clipboard!", 3, 16584754883, 2)
-end)
+OrionLib:Init()
