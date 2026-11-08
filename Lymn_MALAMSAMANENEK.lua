@@ -1,4 +1,4 @@
--- Lymn X MALAM SAMA OPAH (Orion Library - Custom Icons Version)
+-- Lymn X MALAM SAMA OPAH (Auto Farm, TP, & ESP)
 local allowedExecutorID = 101051454784523
 
 -- Validasi Executor Whitelist
@@ -18,38 +18,122 @@ local Window = OrionLib:MakeWindow({
     HidePremium = false, 
     SaveConfig = true, 
     ConfigFolder = "LymnOpahConfig",
-    IntroEnabled = false -- Loading dimatiin biar langsung instan
+    IntroEnabled = false
 })
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
 local autoFarmEnabled = false
-local espOpahEnabled = false
-local espPlayerEnabled = false
 local espKeyEnabled = false
+local espOpahEnabled = false
 local currentCutsceneType = "Bus" 
+local activeESPObjects = {}
+local activeOpahESPObjects = {}
 
--- Storage untuk ESP Highlights
-local espObjects = {
-    Opah = {},
-    Players = {},
-    Keys = {}
-}
+-- Safezone Position Sesuai Request
+local safezonePos = Vector3.new(309.77, 11.14, -223.19)
 
-local safezonePos = Vector3.new(301.94, 9.59, -210.44)
+local function createESP(obj, textName, color, storageTable)
+    if not obj then return end
+    local targetPart = obj:IsA("BasePart") and obj or (obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")))
+    if targetPart and not targetPart:FindFirstChild("LymnESP_Folder") then
+        local container = Instance.new("Folder")
+        container.Name = "LymnESP_Folder"
+        container.Parent = targetPart
 
-local function getKeyColor(keyObj)
-    local colorName = ""
-    local keyColorProp = keyObj:FindFirstChild("KeyColor")
-    if keyColorProp then
-        colorName = tostring(keyColorProp.Value)
-    elseif keyObj:GetAttribute("KeyColor") then
-        colorName = tostring(keyObj:GetAttribute("KeyColor"))
+        local hl = Instance.new("Highlight")
+        hl.Name = "LymnHighlight"
+        hl.FillColor = color
+        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+        hl.FillTransparency = 0.4
+        hl.OutlineTransparency = 0
+        hl.Adornee = obj
+        hl.Parent = container
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "LymnTitle"
+        bb.Size = UDim2.new(0, 200, 0, 50)
+        bb.StudsOffset = Vector3.new(0, 3, 0)
+        bb.AlwaysOnTop = true
+        bb.Adornee = targetPart
+        bb.Parent = container
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Parent = bb
+        textLabel.BackgroundTransparency = 1
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Text = textName
+        textLabel.TextColor3 = color
+        textLabel.TextSize = 14
+        textLabel.TextStrokeTransparency = 0
+
+        table.insert(storageTable, container)
     end
-    return string.lower(colorName)
+end
+
+local function updateESP()
+    for _, item in ipairs(activeESPObjects) do
+        if item then item:Destroy() end
+    end
+    table.clear(activeESPObjects)
+
+    if not espKeyEnabled then return end
+
+    local puzzleItems = workspace:FindFirstChild("PuzzleItems")
+    if puzzleItems then
+        for _, item in ipairs(puzzleItems:GetChildren()) do
+            if item.Name == "Key" then
+                local colorName = "Unknown"
+                local itemColor = Color3.fromRGB(255, 255, 255)
+
+                local keyColorProp = item:FindFirstChild("KeyColor")
+                if keyColorProp then
+                    colorName = tostring(keyColorProp.Value)
+                elseif item:GetAttribute("KeyColor") then
+                    colorName = tostring(item:GetAttribute("KeyColor"))
+                end
+
+                local lowerColor = string.lower(colorName)
+                if lowerColor:find("purple") or lowerColor:find("tulip") then
+                    itemColor = Color3.fromRGB(170, 0, 255)
+                elseif lowerColor:find("blue") then
+                    itemColor = Color3.fromRGB(50, 150, 255)
+                elseif lowerColor:find("red") then
+                    itemColor = Color3.fromRGB(255, 50, 50)
+                elseif lowerColor:find("yellow") or lowerColor:find("gold") then
+                    itemColor = Color3.fromRGB(255, 215, 0)
+                elseif lowerColor:find("green") then
+                    itemColor = Color3.fromRGB(50, 255, 50)
+                end
+
+                createESP(item, "Key: " .. colorName, itemColor, activeESPObjects)
+            end
+        end
+    end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "PasscodeNote" then
+            createESP(obj, "PasscodeNote", Color3.fromRGB(0, 255, 255), activeESPObjects)
+        end
+    end
+end
+
+local function updateOpahESP()
+    for _, item in ipairs(activeOpahESPObjects) do
+        if item then item:Destroy() end
+    end
+    table.clear(activeOpahESPObjects)
+
+    if not espOpahEnabled then return end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj.Name == "Opah" and (obj:IsA("Model") or obj:IsA("BasePart")) then
+            createESP(obj, "Opah", Color3.fromRGB(255, 0, 0), activeOpahESPObjects)
+        end
+    end
 end
 
 local function getPasscode()
@@ -69,7 +153,7 @@ local function getPasscode()
     return nil
 end
 
--- Tab Utama (Icon Main: 18102581819)
+-- Tab Utama
 local TabMain = Window:MakeTab({
     Name = "Main",
     Icon = "rbxassetid://18102581819",
@@ -112,52 +196,28 @@ TabMain:AddButton({
     end
 })
 
--- Tab ESP & Visuals (Icon ESP: 12858057159)
-local TabESP = Window:MakeTab({
+-- Tab Visual / ESP
+local TabVisual = Window:MakeTab({
     Name = "Visuals",
-    Icon = "rbxassetid://12858057159",
+    Icon = "rbxassetid://6031280882",
     PremiumOnly = false
 })
 
-TabESP:AddToggle({
-    Name = "Opah ESP",
-    Default = false,
-    Callback = function(Value)
-        espOpahEnabled = Value
-        if not Value then
-            for _, obj in pairs(espObjects.Opah) do
-                if obj then obj:Destroy() end
-            end
-            espObjects.Opah = {}
-        end
-    end
-})
-
-TabESP:AddToggle({
-    Name = "Player ESP",
-    Default = false,
-    Callback = function(Value)
-        espPlayerEnabled = Value
-        if not Value then
-            for _, obj in pairs(espObjects.Players) do
-                if obj then obj:Destroy() end
-            end
-            espObjects.Players = {}
-        end
-    end
-})
-
-TabESP:AddToggle({
-    Name = "Key ESP",
+TabVisual:AddToggle({
+    Name = "ESP Key & Note Code",
     Default = false,
     Callback = function(Value)
         espKeyEnabled = Value
-        if not Value then
-            for _, obj in pairs(espObjects.Keys) do
-                if obj then obj:Destroy() end
-            end
-            espObjects.Keys = {}
-        end
+        task.defer(updateESP)
+    end
+})
+
+TabVisual:AddToggle({
+    Name = "ESP Opah",
+    Default = false,
+    Callback = function(Value)
+        espOpahEnabled = Value
+        task.defer(updateOpahESP)
     end
 })
 
@@ -223,7 +283,14 @@ task.spawn(function()
                 if currentKeysLeft > 0 then
                     local targetKey = keysList[1]
                     local targetPos = targetKey:IsA("BasePart") and targetKey.Position or targetKey:GetPivot().Position
-                    local colorStr = getKeyColor(targetKey)
+                    
+                    local colorName = "Unknown"
+                    local keyColorProp = targetKey:FindFirstChild("KeyColor")
+                    if keyColorProp then
+                        colorName = tostring(keyColorProp.Value)
+                    elseif targetKey:GetAttribute("KeyColor") then
+                        colorName = tostring(targetKey:GetAttribute("KeyColor"))
+                    end
 
                     rootPart.Velocity = Vector3.zero
                     character:PivotTo(CFrame.new(targetPos + Vector3.new(0, 2, 0)))
@@ -250,12 +317,13 @@ task.spawn(function()
                         fireproximityprompt(puzzlePrompt)
                     end
 
+                    local lowerColor = string.lower(colorName)
                     local lockIndex = "1"
-                    if colorStr:find("red") then lockIndex = "1"
-                    elseif colorStr:find("blue") then lockIndex = "2"
-                    elseif colorStr:find("green") then lockIndex = "3"
-                    elseif colorStr:find("yellow") or colorStr:find("gold") then lockIndex = "4"
-                    elseif colorStr:find("purple") or colorStr:find("tulip") then lockIndex = "5" end
+                    if lowerColor:find("red") then lockIndex = "1"
+                    elseif lowerColor:find("blue") then lockIndex = "2"
+                    elseif lowerColor:find("green") then lockIndex = "3"
+                    elseif lowerColor:find("yellow") or lowerColor:find("gold") then lockIndex = "4"
+                    elseif lowerColor:find("purple") or lowerColor:find("tulip") then lockIndex = "5" end
 
                     local frontDoor = workspace:FindFirstChild("FrontDoor")
                     local puzzleLocks = frontDoor and frontDoor:FindFirstChild("PuzzleLocks")
@@ -308,60 +376,6 @@ task.spawn(function()
                         end
                     end
                     task.wait(0.3)
-                end
-            end
-        end
-    end
-end)
-
--- ESP Rendering Loop
-RunService.RenderStepped:Connect(function()
-    if espKeyEnabled then
-        local puzzleItems = workspace:FindFirstChild("PuzzleItems")
-        if puzzleItems then
-            for _, item in ipairs(puzzleItems:GetChildren()) do
-                if item.Name == "Key" then
-                    local hl = item:FindFirstChild("LymnKeyESP")
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name = "LymnKeyESP"
-                        hl.FillColor = Color3.fromRGB(255, 215, 0)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.Parent = item
-                        table.insert(espObjects.Keys, hl)
-                    end
-                end
-            end
-        end
-    end
-
-    if espPlayerEnabled then
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= player and p.Character then
-                local hl = p.Character:FindFirstChild("LymnPlayerESP")
-                if not hl then
-                    hl = Instance.new("Highlight")
-                    hl.Name = "LymnPlayerESP"
-                    hl.FillColor = Color3.fromRGB(0, 255, 0)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.Parent = p.Character
-                    table.insert(espObjects.Players, hl)
-                end
-            end
-        end
-    end
-
-    if espOpahEnabled then
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if obj.Name:lower():find("opah") or obj.Name:lower():find("atok") or obj.Name:lower():find("monster") then
-                local hl = obj:FindFirstChild("LymnOpahESP")
-                if not hl then
-                    hl = Instance.new("Highlight")
-                    hl.Name = "LymnOpahESP"
-                    hl.FillColor = Color3.fromRGB(255, 0, 0)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.Parent = obj
-                    table.insert(espObjects.Opah, hl)
                 end
             end
         end
