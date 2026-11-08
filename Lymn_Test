@@ -164,7 +164,7 @@ local TabVisual = Window:MakeTab({ Name = "Visuals", Icon = "rbxassetid://603128
 TabVisual:AddToggle({ Name = "ESP Key & Note Code", Default = false, Callback = function(Value) espKeyEnabled = Value task.defer(updateESP) end })
 TabVisual:AddToggle({ Name = "ESP Opah", Default = false, Callback = function(Value) espOpahEnabled = Value task.defer(updateOpahESP) end })
 
--- Lymn X MALAM SAMA OPAH (Part 2)
+-- Lymn X MALAM SAMA OPAH (Part 2 - Fixed Kotak Muzik Flow)
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -257,6 +257,7 @@ task.spawn(function()
                 if kotakMuzik then
                     local boxPart = kotakMuzik:IsA("BasePart") and kotakMuzik or (kotakMuzik:IsA("Model") and (kotakMuzik.PrimaryPart or kotakMuzik:FindFirstChildWhichIsA("BasePart")))
                     
+                    -- 1. Pastikan Box ditekan terlebih dahulu untuk menyalakan lampu (jika belum pernah)
                     if boxPart and not _G.KotakMuzikBoxDone then
                         rootPart.Velocity = Vector3.zero
                         char:PivotTo(boxPart.CFrame + Vector3.new(0, 2, 0))
@@ -267,11 +268,13 @@ task.spawn(function()
                         local boxPrompt = boxAtt and boxAtt:FindFirstChild("SecretPrompt")
                         if boxPrompt and boxPrompt:IsA("ProximityPrompt") then
                             fireproximityprompt(boxPrompt)
-                            task.wait(0.5)
+                            task.wait(0.8) -- Jeda agar lampu sempat menyala (enabled = true)
                             _G.KotakMuzikBoxDone = true
                         end
+                        return -- Berhenti sejenak agar loop berikutnya mulai mengecek lampu yang aktif
                     end
 
+                    -- 2. Cek Key_1 sampai Key_4 yang Light-nya enabled == true
                     local anyLightEnabled = false
                     for i = 1, 4 do
                         local keyPart = kotakMuzik:FindFirstChild("Key_" .. i)
@@ -296,6 +299,7 @@ task.spawn(function()
                         end
                     end
 
+                    -- 3. Baru pindah ke RitualCircle jika Box sudah ditekan DAN semua lampu sudah mati (false)
                     if _G.KotakMuzikBoxDone and not anyLightEnabled then
                         local ritualCircle = secretEnding:FindFirstChild("RitualCircle")
                         if ritualCircle then
