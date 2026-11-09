@@ -1,0 +1,162 @@
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local setclipboard = setclipboard or toclipboard or function(text) print("Clipboard:", text) end
+
+-- 1. Automatic Copy to Clipboard
+setclipboard("https://discord.gg/s2rnnmWa38")
+
+-- 2. GUI Setup (Full Layar & Ignore Notch/Inset Roblox)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "TakaNoMeMaintenance"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.IgnoreGuiInset = true -- PENTING: Supaya nutupin full sampai atas layar HP
+
+if gethui then
+    ScreenGui.Parent = gethui()
+elseif syn and syn.protect_gui then
+    syn.protect_gui(ScreenGui)
+    ScreenGui.Parent = CoreGui
+else
+    ScreenGui.Parent = CoreGui
+end
+
+-- Full Screen Black Background (Dijamin full layar mutlak)
+local BlackBackground = Instance.new("Frame")
+BlackBackground.Name = "BlackBackground"
+BlackBackground.Size = UDim2.new(1, 0, 1, 0)
+BlackBackground.Position = UDim2.new(0, 0, 0, 0)
+BlackBackground.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlackBackground.BorderSizePixel = 0
+BlackBackground.Parent = ScreenGui
+
+-- Center Container (Biar posisi konten pas di tengah layar)
+local CenterContainer = Instance.new("Frame")
+CenterContainer.Name = "CenterContainer"
+CenterContainer.Size = UDim2.new(0, 300, 0, 240)
+CenterContainer.Position = UDim2.new(0.5, -150, 0.5, -120)
+CenterContainer.BackgroundTransparency = 1
+CenterContainer.Parent = BlackBackground
+
+-- Gear Logo Putih Polos Berputar
+local GearLogo = Instance.new("Frame")
+GearLogo.Name = "GearLogo"
+GearLogo.Size = UDim2.new(0, 55, 0, 55)
+GearLogo.Position = UDim2.new(0.5, -27.5, 0, 0)
+GearLogo.BackgroundTransparency = 1
+GearLogo.Parent = CenterContainer
+
+for i = 1, 4 do
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(1, 0, 0, 14)
+    bar.Position = UDim2.new(0, 0, 0.5, -7)
+    bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    bar.BorderSizePixel = 0
+    bar.Rotation = i * 45
+    bar.Parent = GearLogo
+    
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 4)
+    c.Parent = bar
+end
+
+-- Lingkaran tengah gear supaya bolong & estetik
+local GearCenter = Instance.new("Frame")
+GearCenter.Size = UDim2.new(0, 28, 0, 28)
+GearCenter.Position = UDim2.new(0.5, -14, 0.5, -14)
+GearCenter.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+GearCenter.BorderSizePixel = 0
+GearCenter.Parent = GearLogo
+
+local gcCorner = Instance.new("UICorner")
+gcCorner.CornerRadius = UDim.new(1, 0)
+gcCorner.Parent = GearCenter
+
+-- Animasi Putar Gear Halus
+local rotationConn
+rotationConn = RunService.RenderStepped:Connect(function(dt)
+    if GearLogo and GearLogo.Parent then
+        GearLogo.Rotation = GearLogo.Rotation + (60 * dt)
+    else
+        rotationConn:Disconnect()
+    end
+end)
+
+-- Title: Taka No Me
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Size = UDim2.new(1, 0, 0, 35)
+TitleLabel.Position = UDim2.new(0, 0, 0, 65)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "Taka No Me"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 24
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Parent = CenterContainer
+
+-- Status Label ("Maintenance")
+local MaintenanceLabel = Instance.new("TextLabel")
+MaintenanceLabel.Name = "MaintenanceLabel"
+MaintenanceLabel.Size = UDim2.new(1, 0, 0, 25)
+MaintenanceLabel.Position = UDim2.new(0, 0, 0, 105)
+MaintenanceLabel.BackgroundTransparency = 1
+MaintenanceLabel.Text = "Maintenance"
+MaintenanceLabel.TextColor3 = Color3.fromRGB(160, 160, 160)
+MaintenanceLabel.TextSize = 15
+MaintenanceLabel.Font = Enum.Font.Gotham
+MaintenanceLabel.Parent = CenterContainer
+
+-- Countdown Label (Hitung mundur 3, 2, 1)
+local CountdownLabel = Instance.new("TextLabel")
+CountdownLabel.Name = "CountdownLabel"
+CountdownLabel.Size = UDim2.new(1, 0, 0, 40)
+CountdownLabel.Position = UDim2.new(0, 0, 0, 145)
+CountdownLabel.BackgroundTransparency = 1
+CountdownLabel.Text = "3"
+CountdownLabel.TextColor3 = Color3.fromRGB(255, 70, 70)
+CountdownLabel.TextSize = 22
+CountdownLabel.Font = Enum.Font.GothamBold
+CountdownLabel.Parent = CenterContainer
+
+-- Notifikasi kecil status clipboard
+local CopyNotice = Instance.new("TextLabel")
+CopyNotice.Name = "CopyNotice"
+CopyNotice.Size = UDim2.new(1, 0, 0, 20)
+CopyNotice.Position = UDim2.new(0, 0, 0, 195)
+CopyNotice.BackgroundTransparency = 1
+CopyNotice.Text = "Discord link copied to clipboard!"
+CopyNotice.TextColor3 = Color3.fromRGB(100, 255, 100)
+CopyNotice.TextSize = 12
+CopyNotice.Font = Enum.Font.GothamMedium
+CopyNotice.Parent = CenterContainer
+
+-- 3. Countdown & Fade Out Animation
+task.spawn(function()
+    for i = 3, 1, -1 do
+        CountdownLabel.Text = tostring(i)
+        task.wait(1)
+    end
+    
+    -- Smooth Fade Out Full Screen
+    local fadeInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    
+    local bgTween = TweenService:Create(BlackBackground, fadeInfo, {BackgroundTransparency = 1})
+    local titleTween = TweenService:Create(TitleLabel, fadeInfo, {TextTransparency = 1})
+    local maintTween = TweenService:Create(MaintenanceLabel, fadeInfo, {TextTransparency = 1})
+    local countdownTween = TweenService:Create(CountdownLabel, fadeInfo, {TextTransparency = 1})
+    local copyTween = TweenService:Create(CopyNotice, fadeInfo, {TextTransparency = 1})
+
+    bgTween:Play()
+    titleTween:Play()
+    maintTween:Play()
+    countdownTween:Play()
+    copyTween:Play()
+
+    bgTween.Completed:Connect(function()
+        if rotationConn then
+            rotationConn:Disconnect()
+        end
+        ScreenGui:Destroy()
+    end)
+end)
