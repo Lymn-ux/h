@@ -1,7 +1,7 @@
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/jensonhirst/Orion/main/source"))()
 
 local Window = OrionLib:MakeWindow({
-    Name = "Lymn | Malam Sama Opah",
+    Name = "Taka | Malam Sama Opah",
     HidePremium = true,
     SaveConfig = true,
     ConfigFolder = "LymnConfig",
